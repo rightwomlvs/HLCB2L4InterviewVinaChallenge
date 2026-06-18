@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campus Star: Vina's Story - Grammar Challenge</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0fdf4; }
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .chunk-btn { transition: all 0.2s; }
+        .chunk-btn:active { transform: scale(0.95); }
+        
+        /* Hard Mode Styles */
+        .hard-mode .bilingual-text { display: none !important; }
+        
+        /* Toggle Switch Styles */
+        .toggle-checkbox:checked { right: 0; border-color: #16a34a; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #16a34a; }
+        .toggle-checkbox { right: 0; z-index: 1; border-color: #e5e7eb; transition: all 0.3s; }
+        .toggle-label { width: 3rem; height: 1.5rem; background-color: #e5e7eb; border-radius: 9999px; transition: all 0.3s; }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div id="app-container" class="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden border-2 border-green-200">
+        <!-- Header -->
+        <div class="bg-green-600 text-white p-6 text-center relative">
+            <h1 class="text-3xl font-bold mb-2"><i class="fa-solid fa-newspaper mr-2"></i>Campus Star Challenge</h1>
+            <p class="text-green-100 text-sm bilingual-text">幫助校刊社重整 Vina 的專訪內容 (Vocab, Rel. Pronouns, As...As, Quantifiers)</p>
+            <p class="text-green-100 text-sm hidden hard-mode:block" id="hard-mode-desc">Campus Star: Vina's Interview (Grammar Challenge)</p>
+            
+            <!-- Hard Mode Toggle -->
+            <div class="absolute top-4 right-4 flex-col items-center hidden" id="hard-mode-container">
+                <span class="text-xs font-bold mb-1 text-green-100"><i class="fa-solid fa-fire mr-1"></i>Hard Mode</span>
+                <div class="relative inline-block w-12 align-middle select-none transition duration-200 ease-in">
+                    <input type="checkbox" name="toggle" id="hard-mode-toggle" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
+                    <label for="hard-mode-toggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                </div>
+            </div>
+
+            <!-- Status Bar (Hidden by default, shown after login) -->
+            <div class="mt-6 justify-between items-center text-sm font-semibold bg-green-700 p-3 rounded-lg shadow-inner hidden" id="status-bar">
+                <span id="stage-display">Mission 1 <span class="bilingual-text">(任務一)</span></span>
+                <!-- Cumulative Timer Display -->
+                <span id="timer-display" class="bg-green-800 px-3 py-1 rounded-full"><i class="fa-solid fa-stopwatch mr-1"></i> <span id="time-elapsed">00:00</span></span>
+                <span id="score-display">Score: 0 / 205</span>
+            </div>
+        </div>
+
+        <!-- Game Area -->
+        <div id="game-area" class="p-6 sm:p-8 min-h-[400px] flex flex-col relative">
+            <!-- Content will be injected here by JS -->
+        </div>
+
+        <!-- Footer -->
+        <div class="bg-gray-50 border-t p-4 text-center text-gray-500 text-sm flex justify-between items-center">
+            <span>Vocational High School English</span>
+            <span class="bilingual-text text-green-600 font-semibold"><i class="fa-solid fa-microphone-lines mr-1"></i>校園採訪情境版</span>
+        </div>
+    </div>
+
+    <!-- Custom Modal for Feedback -->
+    <div id="feedback-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 z-[100]">
+        <div class="bg-white rounded-xl p-6 max-w-sm w-full text-center shadow-2xl transform scale-95 transition-transform duration-200">
+            <div id="modal-icon" class="text-5xl mb-4"></div>
+            <h2 id="modal-title" class="text-2xl font-bold mb-2"></h2>
+            <p id="modal-message" class="text-gray-600 mb-6 text-sm"></p>
+            <button onclick="closeModal()" id="modal-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                Next <span class="bilingual-text">(繼續任務)</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- HARD MODE LOGIC ---
+        const hardModeToggle = document.getElementById('hard-mode-toggle');
+        const appContainer = document.getElementById('app-container');
+        
+        hardModeToggle.addEventListener('change', function() {
+            if (this.checked) {
+                appContainer.classList.add('hard-mode');
+            } else {
+                appContainer.classList.remove('hard-mode');
+            }
+        });
+
+        // --- AUDIO SYSTEM (Web Audio API) ---
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx;
+
+        function initAudio() {
+            if (!audioCtx) audioCtx = new AudioContext();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function playCorrectSound() {
+            initAudio();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+            osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1); // E5
+            osc.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.2); // G5
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.4);
+        }
+
+        function playWrongSound() {
+            initAudio();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+            osc.frequency.setValueAtTime(100, audioCtx.currentTime + 0.2);
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.4);
+        }
+
+        // --- GAME DATA ---
+        const gameData = {
+            vocab: [
+                { id: "v1", word: "embrace (v.)", options: ["to hide away <span class='bilingual-text'>(躲藏)</span>", "to happily accept <span class='bilingual-text'>(欣然接受)</span>", "to run from <span class='bilingual-text'>(逃跑)</span>"], answer: 1, sentence: "Vina learned to ___ both her cultural identities.", trans: "Vina 學會了___她的雙重文化身份。", errorReview: "<b>embrace</b> 的意思是 to happily accept (欣然接受)。" },
+                { id: "v2", word: "diverse (adj.)", options: ["exactly the same <span class='bilingual-text'>(完全相同)</span>", "very boring <span class='bilingual-text'>(非常無聊)</span>", "showing a lot of variety <span class='bilingual-text'>(多元的)</span>"], answer: 2, sentence: "The answers to 'Who are you?' are as ___ as the people.", trans: "「你是誰？」這個問題的答案和人們一樣___。", errorReview: "<b>diverse</b> 的意思是 showing a lot of variety (多元的)。" },
+                { id: "v3", word: "performance (n.)", options: ["the action of entertaining people <span class='bilingual-text'>(表演)</span>", "a place to buy things <span class='bilingual-text'>(商店)</span>", "a type of traditional food <span class='bilingual-text'>(傳統食物)</span>"], answer: 0, sentence: "Her ___ combined Vietnamese opera and street dance.", trans: "她的___結合了越南歌劇和街舞。", errorReview: "<b>performance</b> 的意思是 the action of entertaining people (表演)。" },
+                { id: "v4", word: "impress (v.)", options: ["to make someone feel bored <span class='bilingual-text'>(使無聊)</span>", "to cause someone to admire you <span class='bilingual-text'>(使印象深刻)</span>", "to forget something important <span class='bilingual-text'>(忘記)</span>"], answer: 1, sentence: "Everyone was ___ by Vina's beautiful dance.", trans: "大家都對 Vina 曼妙的舞姿___。", errorReview: "<b>impress</b> 的意思是 to cause someone to admire you (使印象深刻)。" },
+                { id: "v5", word: "contest (n.)", options: ["a difficult homework <span class='bilingual-text'>(困難的作業)</span>", "a long journey <span class='bilingual-text'>(漫長的旅程)</span>", "a competition <span class='bilingual-text'>(比賽/競賽)</span>"], answer: 2, sentence: "Vina won a talent ___ at our school.", trans: "Vina 在我們學校贏得了一場才藝___。", errorReview: "<b>contest</b> 的意思是 a competition (比賽/競賽)。" }
+            ],
+            relativeClauses: [
+                { 
+                    id: "r1",
+                    hint: "【人 + 物】當先行詞時，關係代名詞只能用 that！",
+                    hintEn: "When the antecedent includes BOTH a person and a thing, you must use 'that'.",
+                    translation: "我剛剛看到的司機和那輛車，都不見了。",
+                    parts: [
+                        { text: "The driver and the car", color: "blue", type: "antecedent" },
+                        { text: "that", color: "green", type: "pronoun" },
+                        { text: "I just saw", color: "gray", type: "clause" },
+                        { text: "are gone.", color: "gray", type: "main" }
+                    ],
+                    correctOrder: [0, 1, 2, 3], 
+                    explanation: "太棒了！當先行詞同時包含「人 (driver)」與「物 (car)」時，必須使用 that 作為關代。",
+                    explanationEn: "Correct! When the antecedent includes both a person and a thing, you must use 'that'.",
+                    errorReview: "句子重組錯誤：The driver and the car <b>that</b> I just saw are gone. (人+物當先行詞必用 that)"
+                },
+                { 
+                    id: "r2",
+                    hint: "找出主要名詞 -> 加上是由誰做的(先行詞) -> 關代 -> 修飾語",
+                    hintEn: "Find the main subject -> then the antecedent -> pronoun -> finishing clause.",
+                    translation: "這些美味的水餃是我一位很親近的鄰居做的。",
+                    parts: [
+                        { text: "The delicious dumplings", color: "gray", type: "main" },
+                        { text: "were made by a neighbor", color: "blue", type: "antecedent" },
+                        { text: "whom", color: "green", type: "pronoun" },
+                        { text: "I am very close to.", color: "gray", type: "clause" }
+                    ],
+                    correctOrder: [0, 1, 2, 3], 
+                    explanation: "正確！主要子句先出來，遇到先行詞 'a neighbor' (人) 後，緊接著加上關代 'whom' 引導的形容詞子句。",
+                    explanationEn: "Correct! The main clause is followed by the antecedent 'a neighbor', which immediately precedes 'whom'.",
+                    errorReview: "句子重組錯誤：The delicious dumplings were made by a neighbor <b>whom</b> I am very close to. (關代 whom 必須緊跟在人 neighbor 之後)"
+                },
+                { 
+                    id: "r3",
+                    hint: "名詞(公寓)是物 -> 用 which -> 加上你住在那裡的描述 -> 補上主要動詞",
+                    hintEn: "Thing (apartment) -> which -> description -> main verb.",
+                    translation: "我正在住的那間公寓離我的學校很近。",
+                    parts: [
+                        { text: "The apartment", color: "blue", type: "antecedent" },
+                        { text: "which", color: "green", type: "pronoun" },
+                        { text: "I'm staying in", color: "gray", type: "clause" },
+                        { text: "is close to my school.", color: "gray", type: "main" }
+                    ],
+                    correctOrder: [0, 1, 2, 3], 
+                    explanation: "完美！The apartment 是事物，所以用 which，接著接上形容它的子句 (I'm staying in)，最後才接上主要句子的動詞 (is close...)。",
+                    explanationEn: "Perfect! 'The apartment' is a thing so we use 'which', followed by the clause and then the main verb.",
+                    errorReview: "句子重組錯誤：The apartment <b>which</b> I'm staying in is close to my school. (關代子句要緊跟在先行詞後面插入)"
+                }
+            ],
+            subjectObject: [
+                {
+                    id: "so1",
+                    sentence: "The apartment <span class='font-bold text-green-600 underline text-2xl'>which</span> I'm staying in is close to my school.",
+                    translation: "我正在住的那間公寓離我的學校很近。",
+                    options: [
+                        { word: "Subject <span class='bilingual-text'>(當主格)</span>", desc: "後面直接接「動詞」" },
+                        { word: "Object <span class='bilingual-text'>(當受格)</span>", desc: "後面接「主詞 + 動詞」" }
+                    ],
+                    correct: 1,
+                    explanation: "正確！which 後面緊接著主詞 (I) 和動詞 (am staying)，所以 which 在子句中扮演<b>受格</b>的角色（當受格時，which 可以省略喔）。",
+                    explanationEn: "Correct! 'which' is followed by a subject (I) and verb (am staying), so it acts as an object.",
+                    errorReview: "辨別主受格：which <b>I am staying</b> in... 後面有主詞 I，所以關代是<b>受格</b>。"
+                },
+                {
+                    id: "so2",
+                    sentence: "I have also made some new friends <span class='font-bold text-green-600 underline text-2xl'>who</span> are friendly to me.",
+                    translation: "我也交了一些對我很友善的新朋友。",
+                    options: [
+                        { word: "Subject <span class='bilingual-text'>(當主格)</span>", desc: "後面直接接「動詞」" },
+                        { word: "Object <span class='bilingual-text'>(當受格)</span>", desc: "後面接「主詞 + 動詞」" }
+                    ],
+                    correct: 0,
+                    explanation: "正確！who 後面緊接著動詞 (are)，代替了前面 friends 的位置發出動作，所以 who 在子句中扮演<b>主格</b>的角色。",
+                    explanationEn: "Correct! 'who' is followed directly by the verb (are), so it acts as the subject.",
+                    errorReview: "辨別主受格：who <b>are</b> friendly... 後面直接接動詞 are，所以關代是<b>主格</b>。"
+                }
+            ],
+            asAs: [
+                {
+                    id: "a1",
+                    sentence: "Martha <span class='font-bold text-red-600 underline'>slept</span> as _____ as a baby last night.",
+                    translation: "瑪莎昨晚睡得和嬰兒一樣香甜。",
+                    verbType: "Action Verb <span class='bilingual-text'>(一般動詞)</span>",
+                    options: [{word: "peaceful", type: "Adjective <span class='bilingual-text'>(形容詞)</span>"}, {word: "peacefully", type: "Adverb <span class='bilingual-text'>(副詞)</span>"}],
+                    correct: 1,
+                    explanation: "答對了！'slept' (睡覺) 是一般動詞，必須使用副詞 (peacefully) 來修飾動作。",
+                    explanationEn: "Correct! 'slept' is an action verb, requiring an adverb (peacefully) to modify it.",
+                    errorReview: "<b>slept</b> 是一般動詞，所以必須配副詞：slept as <b>peacefully</b> as..."
+                },
+                {
+                    id: "a2",
+                    sentence: "Today <span class='font-bold text-blue-600 underline'>is</span> as _____ as yesterday.",
+                    translation: "今天和昨天一樣熱。",
+                    verbType: "Linking/Be Verb <span class='bilingual-text'>(Be 動詞)</span>",
+                    options: [{word: "hot", type: "Adjective <span class='bilingual-text'>(形容詞)</span>"}, {word: "hotly", type: "Adverb <span class='bilingual-text'>(副詞)</span>"}],
+                    correct: 0,
+                    explanation: "答對了！'is' 是 Be 動詞，用來描述狀態，所以要接形容詞 (hot)。",
+                    explanationEn: "Correct! 'is' is a Be-verb, requiring an adjective (hot).",
+                    errorReview: "<b>is</b> 是 Be 動詞，所以必須配形容詞：is as <b>hot</b> as..."
+                }
+            ],
+            quantifiers: [
+                {
+                    id: "q1",
+                    sentence: "Jim can speak _____ Spanish and English.",
+                    translation: "Jim 兩者都會說：西班牙語和英語。",
+                    options: [{word: "any", desc: "任何的"}, {word: "both", desc: "兩者都"}, {word: "each", desc: "每一個"}, {word: "every", desc: "每一個"}],
+                    correct: 1,
+                    explanation: "很好！後面提到兩種語言，因此用 both (兩者都)。",
+                    explanationEn: "Excellent! The sentence mentions two languages, so 'both' is used.",
+                    errorReview: "因為提到西班牙語和英語兩種語言，所以必須用 <b>both</b> (兩者都)。"
+                },
+                {
+                    id: "q2",
+                    sentence: "If you have _____ questions, feel free to ask.",
+                    translation: "如果你有任何問題，請隨時發問。",
+                    options: [{word: "each", desc: "每一個"}, {word: "some", desc: "一些 (肯定句)"}, {word: "both", desc: "兩者都"}, {word: "any", desc: "任何的 (條件/疑問/否定)"}],
+                    correct: 3,
+                    explanation: "正確！在 If 條件句中，通常使用 any (任何的)。",
+                    explanationEn: "Correct! In 'If' conditional clauses, we typically use 'any'.",
+                    errorReview: "在 If 條件句中，通常搭配 <b>any</b> (任何的)：If you have <b>any</b> questions..."
+                }
+            ],
+            finalTest: [
+                {
+                    id: "f1",
+                    source: "【統測 113 年】",
+                    topic: "As...As 比較級",
+                    sentence: "Though she hurt her arm last week, Amy could still <span class='font-bold text-red-600 underline'>play</span> the violin as _____ as before.",
+                    translation: "雖然艾美上週弄傷了手臂，但她仍然能拉小提琴拉得和以前一樣好。",
+                    options: ["skill", "skills", "skillful", "skillfully"],
+                    correct: 3,
+                    explanation: "答對了！'play' 是一般動詞，必須使用副詞 (skillfully) 來修飾動作。",
+                    explanationEn: "Correct! 'play' is an action verb, requiring an adverb (skillfully) to modify it.",
+                    errorReview: "【統測113】<b>play</b> 是一般動詞，必須搭配副詞：play the violin as <b>skillfully</b> as before."
+                },
+                {
+                    id: "f2",
+                    source: "【統測 107 年】",
+                    topic: "關係代名詞",
+                    sentence: "Good health is <span class='font-bold text-blue-600 underline'>one thing</span> in life _____ money can't buy.",
+                    translation: "健康是生命中金錢買不到的一件事。",
+                    options: ["that", "who", "is whom", "is which"],
+                    correct: 0,
+                    explanation: "答對了！先行詞是 'one thing' (事物)，所以使用關代 that (或 which)，不需要額外的 be 動詞。",
+                    explanationEn: "Correct! The antecedent 'one thing' is not a person, so we use 'that' as the object relative pronoun.",
+                    errorReview: "【統測107】先行詞是 <b>one thing</b> (事物)，關代必須用 <b>that</b> (或 which)。"
+                },
+                {
+                    id: "f3",
+                    source: "【課後練習】",
+                    topic: "關係代名詞邏輯",
+                    sentence: "Angus forgot _____ <span class='font-bold text-green-600 underline'>which</span> he created last week.",
+                    translation: "安格斯忘了他上週建立的密碼。",
+                    options: ["the customer", "the student", "the password", "the boy"],
+                    correct: 2,
+                    explanation: "非常棒的邏輯！因為後面的關代是 'which'，代表前面的先行詞必須是「物品」，所以只能選 the password (密碼)。",
+                    explanationEn: "Great logic! The relative pronoun 'which' is used for things, so the antecedent must be 'the password'.",
+                    errorReview: "【課後練習】因為關係代名詞是 <b>which</b>，前方的先行詞必須是「事物」，故選 <b>the password</b>。"
+                },
+                {
+                    id: "f4",
+                    source: "【課後練習】",
+                    topic: "數量限定詞",
+                    sentence: "Both _____ start at 7 p.m., so we can only pick one to watch.",
+                    translation: "兩部電影都在晚上 7 點開始，所以我們只能選一部看。",
+                    options: ["each movie", "movie", "movies", "each movies"],
+                    correct: 2,
+                    explanation: "正確！'Both' 代表「兩者都...」，所以後面的名詞必須是複數型態 (movies)。",
+                    explanationEn: "Correct! 'Both' refers to two items, so the following noun must be plural (movies).",
+                    errorReview: "【課後練習】<b>Both</b> (兩者) 後面的名詞必須是複數型態：Both <b>movies</b> start..."
+                }
+            ]
+        };
+
+        // --- GAME STATE ---
+        let currentStage = 'login'; // login, vocab, relativeClauses, subjectObject, asAs, quantifiers, finalTest, end
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let selectedChunks = [];
+        let availableChunks = [];
+        let errorLog = []; 
+        let studentName = '';
+        let studentClass = '';
+        
+        // Cumulative Timer variables
+        let timerInterval;
+        let totalSeconds = 0;
+
+        // --- DOM ELEMENTS ---
+        const gameArea = document.getElementById('game-area');
+        const stageDisplay = document.getElementById('stage-display');
+        const scoreDisplay = document.getElementById('score-display');
+        const timeDisplay = document.getElementById('time-elapsed');
+        const statusBar = document.getElementById('status-bar');
+        const hardModeContainer = document.getElementById('hard-mode-container');
+        const modal = document.getElementById('feedback-modal');
+        const modalIcon = document.getElementById('modal-icon');
+        const modalTitle = document.getElementById('modal-title');
+        const modalMessage = document.getElementById('modal-message');
+
+        // --- TIMER LOGIC (Cumulative) ---
+        function startTimer() {
+            if (timerInterval) return; 
+            
+            timerInterval = setInterval(() => {
+                totalSeconds++;
+                updateTimerUI();
+            }, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+        }
+
+        function updateTimerUI() {
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            const displayStr = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            timeDisplay.textContent = displayStr;
+        }
+
+        function getFormattedTime() {
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${minutes}m ${seconds}s`;
+        }
+
+        // --- ERROR LOGGING ---
+        function logError(questionObj) {
+            if (!errorLog.some(log => log.id === questionObj.id)) {
+                errorLog.push(questionObj);
+            }
+        }
+
+        // --- CORE LOGIC ---
+        function initGame() {
+            document.body.addEventListener('click', initAudio, { once: true });
+            renderStage();
+        }
+
+        function updateScore(points) {
+            score += points;
+            scoreDisplay.textContent = `Score: ${score} / 205`;
+            scoreDisplay.classList.add('text-yellow-300', 'scale-110');
+            setTimeout(() => scoreDisplay.classList.remove('text-yellow-300', 'scale-110'), 300);
+        }
+
+        function advanceQuestion() {
+            currentQuestionIndex++;
+            let currentArray = gameData[currentStage];
+            
+            if (currentQuestionIndex >= currentArray.length) {
+                currentQuestionIndex = 0;
+                if (currentStage === 'vocab') currentStage = 'relativeClauses';
+                else if (currentStage === 'relativeClauses') currentStage = 'subjectObject';
+                else if (currentStage === 'subjectObject') currentStage = 'asAs';
+                else if (currentStage === 'asAs') currentStage = 'quantifiers';
+                else if (currentStage === 'quantifiers') currentStage = 'finalTest';
+                else currentStage = 'end';
+            }
+            renderStage();
+        }
+
+        function renderStage() {
+            if (currentStage === 'end') {
+                stopTimer();
+                renderEndScreen();
+                return;
+            }
+
+            gameArea.innerHTML = '';
+            gameArea.classList.add('fade-in');
+            setTimeout(() => gameArea.classList.remove('fade-in'), 500);
+
+            if (currentStage === 'login') {
+                // Ensure HUD is hidden in login
+                statusBar.classList.add('hidden');
+                statusBar.classList.remove('flex');
+                hardModeContainer.classList.add('hidden');
+                hardModeContainer.classList.remove('flex');
+                renderLoginScreen();
+            } else if (currentStage === 'vocab') {
+                stageDisplay.innerHTML = "<i class='fa-solid fa-file-word mr-1'></i> Mission 1: Decode Vocab <span class='bilingual-text'>(解碼單字)</span>";
+                renderVocabQuestion();
+            } else if (currentStage === 'relativeClauses') {
+                stageDisplay.innerHTML = "<i class='fa-solid fa-pen-to-square mr-1'></i> Mission 2: Edit Quotes <span class='bilingual-text'>(校對引言)</span>";
+                renderRelativeQuestion();
+            } else if (currentStage === 'subjectObject') {
+                stageDisplay.innerHTML = "<i class='fa-solid fa-eye mr-1'></i> Mission 3: Check Grammar <span class='bilingual-text'>(文法偵錯)</span>";
+                renderSubjectObjectQuestion();
+            } else if (currentStage === 'asAs') {
+                stageDisplay.innerHTML = "<i class='fa-solid fa-scale-balanced mr-1'></i> Mission 4: Compare Facts <span class='bilingual-text'>(比較事實)</span>";
+                renderAsAsQuestion();
+            } else if (currentStage === 'quantifiers') {
+                stageDisplay.innerHTML = "<i class='fa-solid fa-calculator mr-1'></i> Mission 5: Quantify <span class='bilingual-text'>(數量確認)</span>";
+                renderQuantifiersQuestion();
+            } else if (currentStage === 'finalTest') {
+                stageDisplay.innerHTML = "<i class='fa-solid fa-graduation-cap mr-1'></i> Final Boss: Editor's Test <span class='bilingual-text'>(主編測驗)</span>";
+                renderFinalTestQuestion();
+            }
+        }
+
+        // --- STAGE 0: LOGIN ---
+        function renderLoginScreen() {
+            gameArea.innerHTML = `
+                <div class="text-center flex flex-col items-center justify-center h-full max-w-md mx-auto w-full">
+                    <div class="text-6xl text-green-500 mb-6"><i class="fa-solid fa-microphone-lines"></i></div>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Campus Star Reporter <span class="bilingual-text">(校刊記者登入)</span></h2>
+                    <p class="text-gray-500 mb-6 bilingual-text text-sm">We are interviewing Vina today! Please enter your details to start the assignment.<br>(我們今天要專訪 Vina，請輸入記者資料以開始任務。)</p>
+
+                    <div class="w-full space-y-4 text-left bg-gray-50 p-6 rounded-xl border border-gray-200 shadow-inner">
+                        <div>
+                            <label class="block text-gray-700 text-sm font-bold mb-2" for="student-class">
+                                Class / ID <span class="bilingual-text">(班級/座號)</span>
+                            </label>
+                            <input class="shadow-sm appearance-none border border-gray-300 rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent" id="student-class" type="text" placeholder="e.g. 101-05">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 text-sm font-bold mb-2" for="student-name">
+                                Reporter Name <span class="bilingual-text">(記者姓名)</span>
+                            </label>
+                            <input class="shadow-sm appearance-none border border-gray-300 rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent" id="student-name" type="text" placeholder="e.g. 王小明">
+                        </div>
+                        <button onclick="startChallenge()" class="w-full mt-4 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg transition-colors shadow-md text-lg">
+                            Accept Assignment <span class="bilingual-text">(接受採訪任務)</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function startChallenge() {
+            const classInput = document.getElementById('student-class').value.trim();
+            const nameInput = document.getElementById('student-name').value.trim();
+
+            if (!classInput || !nameInput) {
+                showModal('Required <span class="bilingual-text">(資料未填)</span>', 'Please enter your Reporter details. (請完整輸入記者班級與姓名喔！)', 'error');
+                return;
+            }
+
+            studentClass = classInput;
+            studentName = nameInput;
+
+            // Properly reveal HUD elements using Tailwind classes instead of inline styles
+            statusBar.classList.remove('hidden');
+            statusBar.classList.add('flex');
+            
+            hardModeContainer.classList.remove('hidden');
+            hardModeContainer.classList.add('flex');
+
+            // Start timer
+            startTimer();
+
+            currentStage = 'vocab';
+            renderStage();
+        }
+
+        // --- STAGE 1: VOCAB ---
+        function renderVocabQuestion() {
+            const q = gameData.vocab[currentQuestionIndex];
+            gameArea.innerHTML = `
+                <div class="text-center mb-6">
+                    <div class="inline-block bg-yellow-100 text-yellow-800 text-xs font-bold px-3 py-1 rounded-full mb-3 shadow-sm border border-yellow-200">
+                        <i class="fa-solid fa-file-audio mr-1"></i> Interview Transcript ${currentQuestionIndex + 1}/${gameData.vocab.length}
+                    </div>
+                    <h2 class="text-xl text-gray-600 font-semibold mb-2">Decode Vina's Words <span class="bilingual-text">(解碼受訪單字)</span></h2>
+                    
+                    <div class="bg-gray-50 p-4 rounded-lg border-l-4 border-green-500 text-left mb-4 shadow-sm italic text-gray-700">
+                        "... ${q.sentence.replace('___', '<span class="font-bold underline text-green-700">___</span>')} ..."
+                    </div>
+                    
+                    <div class="text-3xl font-bold text-green-700 py-3">${q.word}</div>
+                    <p class="text-gray-500 text-sm mt-1 bilingual-text">草稿翻譯: ${q.trans}</p>
+                </div>
+                <div class="space-y-3 mt-auto">
+                    ${q.options.map((opt, i) => `
+                        <button onclick="checkVocab(${i})" class="w-full text-left p-4 rounded-xl border-2 border-gray-200 hover:border-green-500 hover:bg-green-50 focus:outline-none transition-colors text-lg font-medium text-gray-700 shadow-sm">
+                            ${opt}
+                        </button>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function checkVocab(selectedIndex) {
+            const q = gameData.vocab[currentQuestionIndex];
+            const isHardMode = hardModeToggle.checked;
+            
+            if (selectedIndex === q.answer) {
+                playCorrectSound();
+                updateScore(10);
+                showModal('Noted! <span class="bilingual-text">(紀錄正確)</span>', isHardMode ? "Great job!" : `Great job! You knew the meaning of ${q.word}.`, 'success', advanceQuestion);
+            } else {
+                playWrongSound();
+                logError(q);
+                showModal('Draft Error <span class="bilingual-text">(草稿有誤)</span>', isHardMode ? "Not quite right." : `<b>${q.word}</b> 的意思是 "${q.options[q.answer].replace(/<[^>]*>?/gm, '')}"。`, 'error', advanceQuestion);
+            }
+        }
+
+        // --- STAGE 2: RELATIVE CLAUSES ---
+        function renderRelativeQuestion() {
+            const q = gameData.relativeClauses[currentQuestionIndex];
+            availableChunks = q.parts.map((p, index) => ({...p, originalIndex: index}));
+            selectedChunks = [];
+            availableChunks.sort(() => Math.random() - 0.5);
+            updateSentenceBuilderUI();
+        }
+
+        function updateSentenceBuilderUI() {
+            const q = gameData.relativeClauses[currentQuestionIndex];
+            let html = `
+                <div class="mb-4 text-center">
+                    <div class="inline-block bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full mb-3 shadow-sm border border-blue-200">
+                        <i class="fa-solid fa-pen-nib mr-1"></i> Editor's Desk
+                    </div>
+                    <h2 class="text-xl text-gray-700 font-bold mb-1">Rebuild Vina's Quotes <span class="bilingual-text">(重組 Vina 的句子)</span></h2>
+                    <p class="text-sm text-gray-500 bilingual-text"><i class="fa-solid fa-lightbulb text-yellow-500 mr-1"></i> ${q.hint}</p>
+                    <p class="text-sm text-gray-500 hidden hard-mode:block"><i class="fa-solid fa-lightbulb text-yellow-500 mr-1"></i> ${q.hintEn}</p>
+                    <p class="text-sm text-blue-600 mt-1 font-medium bilingual-text">目標句意：${q.translation}</p>
+                </div>
+                
+                <div class="min-h-[100px] p-4 bg-yellow-50 rounded-xl border-2 border-dashed border-yellow-400 flex flex-wrap gap-2 items-center justify-center mb-6 shadow-inner font-serif" id="answer-area">
+                    ${selectedChunks.length === 0 ? '<span class="text-gray-400 font-sans italic">Tap words below to build the sentence here. <span class="bilingual-text">(點擊下方字卡)</span></span>' : ''}
+                    ${selectedChunks.map((chunk, i) => `
+                        <button onclick="moveToAvailable(${i})" class="chunk-btn px-4 py-2 rounded-lg font-medium shadow-sm ${getChunkColor(chunk.color)}">
+                            ${chunk.text}
+                        </button>
+                    `).join('')}
+                </div>
+
+                <div class="flex flex-wrap gap-2 justify-center mb-6" id="word-bank">
+                    ${availableChunks.map((chunk, i) => `
+                        <button onclick="moveToSelected(${i})" class="chunk-btn px-4 py-2 rounded-lg font-medium shadow-sm ${getChunkColor(chunk.color)} opacity-90 hover:opacity-100">
+                            ${chunk.text}
+                        </button>
+                    `).join('')}
+                </div>
+
+                <button onclick="checkSentence()" class="mt-auto w-full py-4 rounded-xl font-bold text-white transition-colors shadow-md ${selectedChunks.length === q.parts.length ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-300 cursor-not-allowed'}" ${selectedChunks.length === q.parts.length ? '' : 'disabled'}>
+                    Submit Quote <span class="bilingual-text">(送出引言)</span>
+                </button>
+            `;
+            gameArea.innerHTML = html;
+        }
+
+        function getChunkColor(colorType) {
+            if (colorType === 'blue') return 'bg-blue-100 text-blue-800 border-2 border-blue-300';
+            if (colorType === 'green') return 'bg-green-100 text-green-800 border-2 border-green-300';
+            return 'bg-white text-gray-700 border-2 border-gray-200';
+        }
+
+        function moveToSelected(index) { initAudio(); selectedChunks.push(availableChunks[index]); availableChunks.splice(index, 1); updateSentenceBuilderUI(); }
+        function moveToAvailable(index) { initAudio(); availableChunks.push(selectedChunks[index]); selectedChunks.splice(index, 1); updateSentenceBuilderUI(); }
+
+        function checkSentence() {
+            const q = gameData.relativeClauses[currentQuestionIndex];
+            const currentOrder = selectedChunks.map(c => c.originalIndex);
+            const isHardMode = hardModeToggle.checked;
+            
+            let isCorrect = true;
+            for(let i=0; i<currentOrder.length; i++){
+                if(currentOrder[i] !== q.correctOrder[i]) isCorrect = false;
+            }
+
+            if (isCorrect) {
+                playCorrectSound();
+                updateScore(15);
+                showModal('Perfect Quote! <span class="bilingual-text">(引言完美)</span>', isHardMode ? q.explanationEn : q.explanation, 'success', advanceQuestion);
+            } else {
+                playWrongSound();
+                logError(q);
+                showModal('Needs Editing! <span class="bilingual-text">(需要修改)</span>', isHardMode ? "Hint: The green relative pronoun must immediately follow the blue antecedent noun." : "提示: 綠色的關係代名詞必須緊跟在藍色的先行詞(名詞)正後方！<br><br>我們先看下一段引言。", 'error', advanceQuestion);
+            }
+        }
+
+        // --- STAGE 3: SUBJECT OR OBJECT ---
+        function renderSubjectObjectQuestion() {
+            const q = gameData.subjectObject[currentQuestionIndex];
+            gameArea.innerHTML = `
+                <div class="text-center mb-6">
+                    <div class="inline-block bg-purple-100 text-purple-800 text-xs font-bold px-3 py-1 rounded-full mb-3 shadow-sm border border-purple-200">
+                        <i class="fa-solid fa-magnifying-glass mr-1"></i> Grammar Check
+                    </div>
+                    <h2 class="text-xl text-gray-700 font-bold mb-4">Identify the Role <span class="bilingual-text">(判斷關代角色)</span></h2>
+                    <p class="text-sm text-gray-500 mb-4 bilingual-text"><i class="fa-solid fa-eye text-blue-500 mr-1"></i> 幫主編檢查這句話：畫底線的字，它的<b>正後方</b>接了什麼？</p>
+                    
+                    <div class="text-2xl font-medium text-gray-800 p-6 bg-white shadow-md rounded-xl border-l-4 border-purple-500 font-serif italic">
+                        "${q.sentence}"
+                    </div>
+                    <p class="text-gray-500 text-sm mt-3 bilingual-text">報導翻譯：${q.translation}</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 mt-auto">
+                    ${q.options.map((opt, i) => `
+                        <button onclick="checkSubjectObject(${i})" class="flex flex-col items-center justify-center p-6 rounded-xl border-2 border-gray-200 hover:border-purple-500 hover:bg-purple-50 transition-colors shadow-sm">
+                            <span class="text-xl font-bold text-purple-700 mb-2">${opt.word}</span>
+                            <span class="text-sm text-gray-500 font-medium">${opt.desc}</span>
+                        </button>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function checkSubjectObject(selectedIndex) {
+            const q = gameData.subjectObject[currentQuestionIndex];
+            const isHardMode = hardModeToggle.checked;
+
+            if (selectedIndex === q.correct) {
+                playCorrectSound();
+                updateScore(10);
+                showModal('Good Eye! <span class="bilingual-text">(好眼力)</span>', isHardMode ? q.explanationEn : q.explanation, 'success', advanceQuestion);
+            } else {
+                playWrongSound();
+                logError(q);
+                showModal('Check Again <span class="bilingual-text">(再檢查一次)</span>', isHardMode ? q.explanationEn : q.explanation, 'error', advanceQuestion);
+            }
+        }
+
+        // --- STAGE 4: AS...AS ---
+        function renderAsAsQuestion() {
+            const q = gameData.asAs[currentQuestionIndex];
+            gameArea.innerHTML = `
+                <div class="text-center mb-6">
+                    <div class="inline-block bg-orange-100 text-orange-800 text-xs font-bold px-3 py-1 rounded-full mb-3 shadow-sm border border-orange-200">
+                        <i class="fa-solid fa-scale-balanced mr-1"></i> Fact Checking
+                    </div>
+                    <h2 class="text-xl text-gray-700 font-bold mb-4">Adjective or Adverb? <span class="bilingual-text">(形容詞或副詞？)</span></h2>
+                    
+                    <div class="inline-block bg-blue-50 border border-blue-200 text-blue-800 px-4 py-2 rounded-full text-sm font-semibold mb-4 shadow-sm">
+                        <i class="fa-solid fa-search mr-1"></i> Verb Identified: ${q.verbType}
+                    </div>
+
+                    <div class="text-2xl font-medium text-gray-800 p-6 bg-white shadow-md rounded-xl border border-gray-200">
+                        ${q.sentence}
+                    </div>
+                    <p class="text-gray-500 text-sm mt-3 bilingual-text">翻譯：${q.translation}</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 mt-auto">
+                    ${q.options.map((opt, i) => `
+                        <button onclick="checkAsAs(${i})" class="flex flex-col items-center justify-center p-6 rounded-xl border-2 border-gray-200 hover:border-orange-500 hover:bg-orange-50 transition-colors shadow-sm">
+                            <span class="text-2xl font-bold text-orange-700 mb-1">${opt.word}</span>
+                            <span class="text-sm text-gray-500 font-medium">${opt.type}</span>
+                        </button>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function checkAsAs(selectedIndex) {
+            const q = gameData.asAs[currentQuestionIndex];
+            const isHardMode = hardModeToggle.checked;
+
+            if (selectedIndex === q.correct) {
+                playCorrectSound();
+                updateScore(15);
+                showModal('Accurate! <span class="bilingual-text">(敘述精準)</span>', isHardMode ? q.explanationEn : q.explanation, 'success', advanceQuestion);
+            } else {
+                playWrongSound();
+                logError(q);
+                showModal('Typo Alert! <span class="bilingual-text">(有錯字)</span>', isHardMode ? `Look at the underlined verb. ${q.explanationEn}` : `請看畫底線的動詞。${q.explanation}`, 'error', advanceQuestion);
+            }
+        }
+
+        // --- STAGE 5: QUANTIFIERS ---
+        function renderQuantifiersQuestion() {
+            const q = gameData.quantifiers[currentQuestionIndex];
+            gameArea.innerHTML = `
+                <div class="text-center mb-6">
+                    <div class="inline-block bg-teal-100 text-teal-800 text-xs font-bold px-3 py-1 rounded-full mb-3 shadow-sm border border-teal-200">
+                        <i class="fa-solid fa-list-ol mr-1"></i> Data Checking
+                    </div>
+                    <h2 class="text-xl text-gray-700 font-bold mb-4">Choose the Quantifier <span class="bilingual-text">(確認數量詞)</span></h2>
+                    <div class="text-2xl font-medium text-gray-800 p-6 bg-white shadow-md rounded-xl border border-gray-200">
+                        ${q.sentence}
+                    </div>
+                    <p class="text-gray-500 text-sm mt-3 bilingual-text">翻譯：${q.translation}</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 mt-auto">
+                    ${q.options.map((opt, i) => `
+                        <button onclick="checkQuantifier(${i})" class="flex flex-col items-center justify-center p-4 rounded-xl border-2 border-gray-200 hover:border-teal-500 hover:bg-teal-50 transition-colors shadow-sm">
+                            <span class="text-xl font-bold text-teal-700 mb-1">${opt.word}</span>
+                            <span class="text-sm text-gray-500 bilingual-text">${opt.desc}</span>
+                        </button>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function checkQuantifier(selectedIndex) {
+            const q = gameData.quantifiers[currentQuestionIndex];
+            const isHardMode = hardModeToggle.checked;
+
+            if (selectedIndex === q.correct) {
+                playCorrectSound();
+                updateScore(10);
+                showModal('Data Verified! <span class="bilingual-text">(資料正確)</span>', isHardMode ? q.explanationEn : q.explanation, 'success', advanceQuestion);
+            } else {
+                playWrongSound();
+                logError(q);
+                showModal('Data Error! <span class="bilingual-text">(資料有誤)</span>', isHardMode ? q.explanationEn : q.explanation, 'error', advanceQuestion);
+            }
+        }
+
+        // --- STAGE 6: FINAL TEST ---
+        function renderFinalTestQuestion() {
+            const q = gameData.finalTest[currentQuestionIndex];
+            gameArea.innerHTML = `
+                <div class="text-center mb-6">
+                    <div class="flex justify-center items-center mb-2 gap-2">
+                        <span class="bg-red-100 text-red-800 text-xs font-bold px-3 py-1 rounded-full shadow-sm border border-red-200"><i class="fa-solid fa-fire mr-1"></i> Editor's Final Test</span>
+                    </div>
+                    <div class="flex justify-center items-center mb-2 gap-2">
+                        <span class="bg-gray-100 text-gray-800 text-xs font-bold px-2 py-1 rounded">${q.source}</span>
+                        <span class="text-gray-500 text-sm font-semibold">${q.topic}</span>
+                    </div>
+                    
+                    <div class="text-2xl font-medium text-gray-800 p-6 bg-white shadow-md rounded-xl border-t-4 border-red-500 mt-4 leading-relaxed font-serif">
+                        ${q.sentence}
+                    </div>
+                    <p class="text-gray-500 text-sm mt-4 bilingual-text">翻譯：${q.translation}</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 mt-auto">
+                    ${q.options.map((opt, i) => `
+                        <button onclick="checkFinalTest(${i})" class="text-left p-4 rounded-xl border-2 border-gray-200 hover:border-red-500 hover:bg-red-50 transition-colors text-lg font-medium text-gray-700 relative group shadow-sm">
+                            <span class="absolute left-4 text-gray-400 group-hover:text-red-500">${String.fromCharCode(65 + i)}.</span>
+                            <span class="ml-8">${opt}</span>
+                        </button>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function checkFinalTest(selectedIndex) {
+            const q = gameData.finalTest[currentQuestionIndex];
+            const isHardMode = hardModeToggle.checked;
+
+            if (selectedIndex === q.correct) {
+                playCorrectSound();
+                updateScore(10);
+                showModal('Passed! <span class="bilingual-text">(通過考驗！)</span>', isHardMode ? q.explanationEn : q.explanation, 'success', advanceQuestion);
+            } else {
+                playWrongSound();
+                logError(q);
+                showModal('Editor says No <span class="bilingual-text">(主編退件)</span>', isHardMode ? q.explanationEn : q.explanation, 'error', advanceQuestion);
+            }
+        }
+
+        // --- COPY ERROR LOG TO CLIPBOARD ---
+        function copyErrorLog() {
+            const timeStr = getFormattedTime();
+            // Include Student info in the copied log
+            let textToCopy = `📰 Campus Star Grammar Report\n👤 記者/班級: ${studentClass} | 姓名: ${studentName}\n⏱️ 截稿時間: ${timeStr} | 🏆 表現分數: ${score}/205\n\n`;
+            
+            if (errorLog.length === 0) {
+                textToCopy += "太神啦！你完全掌握了這次的文法重點與統測考古題，主編對你的稿件非常滿意！\n";
+            } else {
+                textToCopy += "【主編的退稿筆記 (錯題本)】\n"
+                errorLog.forEach((err, idx) => {
+                    let cleanText = err.errorReview.replace(/<[^>]*>?/gm, '');
+                    textToCopy += `${idx + 1}. ${cleanText}\n`;
+                });
+            }
+
+            const tempTextArea = document.createElement("textarea");
+            tempTextArea.value = textToCopy;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+            document.execCommand("copy");
+            document.body.removeChild(tempTextArea);
+
+            const btn = document.getElementById('copy-log-btn');
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-check mr-2"></i>Copied! (已複製)';
+            btn.classList.replace('bg-blue-100', 'bg-green-600');
+            btn.classList.replace('text-blue-800', 'text-white');
+            
+            setTimeout(() => {
+                btn.innerHTML = originalHTML;
+                btn.classList.replace('bg-green-600', 'bg-blue-100');
+                btn.classList.replace('text-white', 'text-blue-800');
+            }, 2000);
+        }
+
+        // --- END SCREEN & ERROR LOG ---
+        function renderEndScreen() {
+            stageDisplay.innerHTML = "Issue Published! <span class='bilingual-text'>(校刊已發布)</span>";
+            
+            // Hidden hard mode and hide the switch container to avoid clutter
+            hardModeContainer.classList.add('hidden');
+            hardModeContainer.classList.remove('flex');
+            
+            const timeStr = getFormattedTime();
+
+            let errorLogHtml = '';
+            if (errorLog.length > 0) {
+                errorLogHtml = `
+                    <div class="mt-4 w-full text-left bg-red-50 p-4 rounded-xl border border-red-200 max-h-48 overflow-y-auto relative">
+                        <div class="flex justify-between items-center mb-3 sticky top-0 bg-red-50 pb-2 border-b border-red-200">
+                            <h3 class="text-red-800 font-bold"><i class="fa-solid fa-clipboard-list mr-2"></i>Editor's Notes (主編退稿筆記)</h3>
+                            <button id="copy-log-btn" onclick="copyErrorLog()" class="bg-blue-100 text-blue-800 hover:bg-blue-200 px-3 py-1 rounded-md text-xs font-bold transition-colors shadow-sm">
+                                <i class="fa-regular fa-copy mr-1"></i>複製記者成績單
+                            </button>
+                        </div>
+                        <ul class="space-y-3 text-sm">
+                            ${errorLog.map((err, idx) => `
+                                <li class="border-b border-red-100 pb-2 last:border-0">
+                                    <span class="font-semibold text-gray-700">${idx + 1}.</span> 
+                                    <span class="text-gray-600">${err.errorReview}</span>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                `;
+            } else {
+                errorLogHtml = `
+                    <div class="mt-4 w-full bg-green-50 p-4 rounded-xl border border-green-200 relative">
+                        <div class="absolute top-2 right-2">
+                             <button id="copy-log-btn" onclick="copyErrorLog()" class="bg-blue-100 text-blue-800 hover:bg-blue-200 px-3 py-1 rounded-md text-xs font-bold transition-colors shadow-sm">
+                                <i class="fa-regular fa-copy mr-1"></i>複製完美成績單
+                            </button>
+                        </div>
+                        <h3 class="text-green-800 font-bold mt-2"><i class="fa-solid fa-star mr-2"></i>Perfect Article!</h3>
+                        <p class="text-sm text-gray-600 mt-1">太神啦！你完全掌握了這次的文法重點與統測考古題，主編對你的稿件非常滿意！</p>
+                    </div>
+                `;
+            }
+            
+            gameArea.innerHTML = `
+                <div class="text-center flex flex-col items-center justify-center h-full fade-in">
+                    <div class="text-6xl text-yellow-400 mb-2"><i class="fa-solid fa-newspaper"></i></div>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-1">Issue Published!</h2>
+                    <p class="text-gray-500 mb-2 bilingual-text text-sm">Vina 的專訪校刊順利發行了！</p>
+                    
+                    <!-- Student Info Badge -->
+                    <div class="bg-gray-100 border border-gray-300 rounded-full px-6 py-2 mb-2">
+                        <span class="text-gray-500 font-medium text-sm mr-2"><i class="fa-solid fa-id-badge mr-1"></i>Reporter:</span>
+                        <span class="text-gray-800 font-bold text-lg">${studentClass} ${studentName}</span>
+                    </div>
+                    
+                    <div class="flex gap-4 my-2 justify-center">
+                        <div class="bg-green-100 text-green-800 font-bold py-2 px-4 rounded-lg shadow-sm">
+                            Score: ${score} / 205
+                        </div>
+                        <div class="bg-blue-100 text-blue-800 font-bold py-2 px-4 rounded-lg shadow-sm">
+                            <i class="fa-solid fa-stopwatch mr-1"></i> Time: ${timeStr}
+                        </div>
+                    </div>
+                    
+                    ${errorLogHtml}
+
+                    <button onclick="location.reload()" class="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition-colors shadow-md">
+                        New Assignment <span class="bilingual-text">(下一位記者測驗)</span>
+                    </button>
+                </div>
+            `;
+        }
+
+        // --- MODAL LOGIC ---
+        let modalCallback = null;
+        function showModal(title, message, type, callback = null) {
+            modalTitle.innerHTML = title;
+            modalMessage.innerHTML = message;
+            const btn = document.getElementById('modal-btn');
+            
+            if (type === 'success') {
+                modalIcon.innerHTML = '<i class="fa-solid fa-circle-check text-green-500"></i>';
+                modalTitle.className = "text-2xl font-bold mb-2 text-green-600";
+                btn.className = "w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors";
+            } else {
+                modalIcon.innerHTML = '<i class="fa-solid fa-circle-exclamation text-red-500"></i>';
+                modalTitle.className = "text-2xl font-bold mb-2 text-red-600";
+                btn.className = "w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-4 rounded-lg transition-colors";
+            }
+
+            modalCallback = callback;
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            modal.classList.add('hidden');
+            if (modalCallback) {
+                modalCallback();
+                modalCallback = null;
+            }
+        }
+
+        // Start game
+        initGame();
+    </script>
+</body>
+</html>
